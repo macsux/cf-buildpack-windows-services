@@ -12,6 +12,10 @@ namespace MyBuildpack
         public abstract string GetStartupCommand(string buildPath);
         protected override int DoRun(string[] args)
         {
+            for(int i=0;i<args.Length;i++)
+            {
+                Console.WriteLine($"{i}: {args[i]}");
+            }
             var command = args[0];
             switch (command)
             {

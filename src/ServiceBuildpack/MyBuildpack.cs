@@ -71,7 +71,7 @@ namespace MyBuildpack
                     .Single();
                 
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Console.Error.WriteLine("Unable to find entry point for the application");
                 Environment.Exit(1);
@@ -96,11 +96,11 @@ namespace MyBuildpack
             var isSelfDll = selfName.EndsWith("exe");
             if (isSelfDll)
             {
-                return $"{Path.Combine(buildPath, selfName.Remove(selfName.Length - ".dll".Length))} launch";
+                return $"{selfName.Remove(selfName.Length - ".dll".Length)} launch";
             }
             else
             {
-                return $"{Path.Combine(buildPath, selfName)} launch";
+                return $"{selfName} launch";
             }
         }
     }
