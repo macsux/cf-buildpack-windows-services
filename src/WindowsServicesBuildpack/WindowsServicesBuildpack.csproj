@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{D67FADF3-EB8C-44D2-A977-9EC7530DA676}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>Bootstrap</RootNamespace>
-    <AssemblyName>Bootstrap</AssemblyName>
+    <RootNamespace>WindowsServicesBuildpack</RootNamespace>
+    <AssemblyName>Buildpack</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

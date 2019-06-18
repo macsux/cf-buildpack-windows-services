@@ -17,7 +17,8 @@ namespace WindowsServicesBuildpack
 
         protected override void Apply(string buildPath, string cachePath, string depsPath, int index)
         {
-            foreach (var file in Directory.EnumerateFiles(Assembly.GetExecutingAssembly().Location).Where(x => x.EndsWith(".dll") || x.EndsWith(".exe")))
+            Console.WriteLine("===== Windows Service Buildpack ====");
+            foreach (var file in Directory.EnumerateFiles(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)))
             {
                 File.Copy(file, Path.Combine(buildPath, Path.GetFileName(file)));
             }
@@ -25,7 +26,7 @@ namespace WindowsServicesBuildpack
 
         public override string GetStartupCommand(string buildPath)
         {
-            return $"{Assembly.GetExecutingAssembly().Location} run";
+            return $"buildpack.exe run";
         }
 
         protected override int DoRun(string[] args)
@@ -41,10 +42,9 @@ namespace WindowsServicesBuildpack
         private void Main(string[] args)
         {
             var folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            var filename = Path.GetFileName(Assembly.GetExecutingAssembly().Location);
+            
             var targetExe = Directory.EnumerateFiles(folder)
-                .FirstOrDefault(x => x.EndsWith(".exe") && Path.GetFileName(x) != filename && !Path.GetFileName(x).Contains("EasyHook"));
-
+                .FirstOrDefault(x => x.EndsWith(".exe") && x.ToLower() != Assembly.GetEntryAssembly().Location.ToLower() && !Path.GetFileName(x).Contains("EasyHook"));
             if (targetExe == null)
             {
                 Console.Error.Write("Target executable not found");
@@ -59,10 +59,12 @@ namespace WindowsServicesBuildpack
             };
             foreach (var injector in injectors) injector.Install();
 
+            Console.WriteLine("Injectors applied");
 
             var serviceAsm = Assembly.LoadFile(targetExe);
             var entryPoint = serviceAsm.EntryPoint;
-
+            Console.WriteLine("Starting service Main method...");
+//            entryPoint.Invoke(null, new[] {new string[0]});
             if (entryPoint.GetParameters().Any())
                 Task.Run(() => entryPoint.Invoke(null, new[] {new string[0]}));
             else

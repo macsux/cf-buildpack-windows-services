@@ -123,6 +123,7 @@ class Build : NukeBuild
                     .SetAssemblyVersion(GitVersion.GetNormalizedAssemblyVersion())
                     .SetFileVersion(GitVersion.GetNormalizedFileVersion())
                     .SetInformationalVersion(GitVersion.InformationalVersion)
+                    .EnableIncludeSymbols()
                     );
 //            DotNetPublish(s => s
 //                .SetProject(Solution)

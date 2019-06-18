@@ -16,7 +16,7 @@ namespace WindowsServicesBuildpack
         {
             var procAddress = LocalHook.GetProcAddress(dll, method);
             var hook = LocalHook.Create(procAddress, hookImpl, null);
-            hook.ThreadACL.SetExclusiveACL(new[] {0});
+            hook.ThreadACL.SetExclusiveACL(new int[0]);
             return hook;
         }
 
