@@ -1,3 +1,0 @@
-#!/bin/bash
-BUILDPACK_DIR=`dirname $(readlink -f ${BASH_SOURCE%/*})`
-$BUILDPACK_DIR/bin/buildpack finalize $@

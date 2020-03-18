@@ -1,5 +1,5 @@
 using System;
-using EasyHook;
+using CoreHook;
 
 namespace WindowsServicesBuildpack
 {
@@ -23,6 +23,7 @@ namespace WindowsServicesBuildpack
         public void Install()
         {
             OnInstall();
+            
             Context.HarmonyInstance.PatchAll(GetType().Assembly);
         }
 

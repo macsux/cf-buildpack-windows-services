@@ -1,4 +1,4 @@
-﻿namespace WindowsServicesBuildpack
+﻿﻿namespace WindowsServicesBuildpack
 {
     public enum CtrlEvent
     {

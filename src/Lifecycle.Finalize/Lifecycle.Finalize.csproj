@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net472</TargetFramework>
+        <RootNamespace>Lifecycle</RootNamespace>
+        <AssemblyName>finalize</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\WindowsServicesBuildpack\WindowsServicesBuildpack.csproj" />
+    </ItemGroup>
+
+</Project>

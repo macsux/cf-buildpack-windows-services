@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -27,7 +27,7 @@ namespace WindowsServicesBuildpack
             {
                 Console.WriteLine("Starting graceful shutdown of services");
                 await Task.WhenAll(_serviceCommands.Select(x =>
-                    Task.Run(() => x.Value.CommandControlDelegate(5, 0, IntPtr.Zero, IntPtr.Zero))));
+                    Task.Run(() => x.Value.CommandControlDelegate(1, 0, IntPtr.Zero, IntPtr.Zero))));
             });
         }
 

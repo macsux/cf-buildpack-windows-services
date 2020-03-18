@@ -1,16 +1,16 @@
-using Harmony;
+using HarmonyLib;
 
 namespace WindowsServicesBuildpack
 {
     public class InjectorContext
     {
-        public InjectorContext(string[] args, HarmonyInstance harmonyInstance)
+        public InjectorContext(string[] args, Harmony harmonyInstance)
         {
             Args = args;
             HarmonyInstance = harmonyInstance;
         }
 
         public string[] Args { get; }
-        public HarmonyInstance HarmonyInstance { get; }
+        public Harmony HarmonyInstance { get; }
     }
 }

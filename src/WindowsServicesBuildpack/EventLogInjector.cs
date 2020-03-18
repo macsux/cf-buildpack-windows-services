@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using Harmony;
+using HarmonyLib;
 
 namespace WindowsServicesBuildpack
 {

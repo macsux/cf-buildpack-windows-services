@@ -3,14 +3,13 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Harmony;
+using HarmonyLib;
 
 namespace WindowsServicesBuildpack
 {
-    public class WindowsServicesBuildpack : FinalBuildpack 
+    public class WindowsServicesBuildpack : FinalBuildpack
     {
-        
-        protected override bool Detect(string buildPath)
+        public override bool Detect(string buildPath)
         {
             return false;
         }
@@ -24,34 +23,32 @@ namespace WindowsServicesBuildpack
             }
         }
 
-        public override string GetStartupCommand(string buildPath)
-        {
-            return $"buildpack.exe run";
-        }
-
-        protected override int DoRun(string[] args)
-        {
-            if (args[0] == "run")
-            {
-                Main(args.Skip(0).ToArray());
-                return 0;
-            }
-            return base.DoRun(args);
-        }
-
-        private void Main(string[] args)
+        public void Run(string[] args)
         {
             var folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            
-            var targetExe = Directory.EnumerateFiles(folder)
-                .FirstOrDefault(x => x.EndsWith(".exe") && x.ToLower() != Assembly.GetEntryAssembly().Location.ToLower() && !Path.GetFileName(x).Contains("EasyHook"));
+            string targetExe = Environment.GetEnvironmentVariable("WINDOWS_SERVICE_EXE");
             if (targetExe == null)
+            {
+                targetExe = Directory.EnumerateFiles(folder)
+                    .FirstOrDefault(x =>
+                        x.EndsWith(".exe") &&
+                        x.ToLower() != Assembly.GetEntryAssembly().Location.ToLower() &&
+                        !Path.GetFileName(x).Contains("EasyHook") && 
+                        !Path.GetFileName(x).ToLower().Equals("buildpack.exe") && 
+                        !Path.GetFileName(x).ToLower().Equals("detect.exe") && 
+                        !Path.GetFileName(x).ToLower().Equals("supply.exe") && 
+                        !Path.GetFileName(x).ToLower().Equals("finalize.exe") && 
+                        !Path.GetFileName(x).ToLower().Equals("release.exe")  &&
+                        !Path.GetFileName(x).ToLower().Equals("launch.exe") 
+                        );
+            }
+            Console.WriteLine($"Identified {targetExe} as the service entry point executable");
+            if (targetExe == null || !File.Exists(targetExe))
             {
                 Console.Error.Write("Target executable not found");
                 return;
             }
-
-            var context = new InjectorContext(args, HarmonyInstance.Create("bootstrapper"));
+            var context = new InjectorContext(args, new Harmony("bootstrapper"));
             var injectors = new Injector[]
             {
                 new ScimControllerInjector(context),
@@ -64,13 +61,16 @@ namespace WindowsServicesBuildpack
             var serviceAsm = Assembly.LoadFile(targetExe);
             var entryPoint = serviceAsm.EntryPoint;
             Console.WriteLine("Starting service Main method...");
-//            entryPoint.Invoke(null, new[] {new string[0]});
             if (entryPoint.GetParameters().Any())
                 Task.Run(() => entryPoint.Invoke(null, new[] {new string[0]}));
             else
                 Task.Run(() => entryPoint.Invoke(null, null));
             Console.WriteLine("Press CTRL+C to Shutdown...");
             ApplicationLifecycle.ShutdownCompleteHandle.WaitOne();
+        }
+        public override string GetStartupCommand(string buildPath)
+        {
+            return $"buildpack.exe Run";
         }
     }
 }
