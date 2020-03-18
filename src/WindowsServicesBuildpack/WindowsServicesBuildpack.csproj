@@ -5,7 +5,6 @@
         <TargetFramework>net472</TargetFramework>
         <RootNamespace>WindowsServicesBuildpack</RootNamespace>
         <AssemblyName>buildpack</AssemblyName>
-
     </PropertyGroup>
 
     <ItemGroup>
@@ -23,5 +22,5 @@
             <TargetPath>corehook64.dll</TargetPath>
         </ContentWithTargetPath>
     </ItemGroup>
-
+    
 </Project>

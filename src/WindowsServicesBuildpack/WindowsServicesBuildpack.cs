@@ -70,7 +70,7 @@ namespace WindowsServicesBuildpack
         }
         public override string GetStartupCommand(string buildPath)
         {
-            return $"buildpack.exe Run";
+            return $"launch.exe";
         }
     }
 }

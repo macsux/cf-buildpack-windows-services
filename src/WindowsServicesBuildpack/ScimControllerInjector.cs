@@ -3,14 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+ using CoreHook;
 
-namespace WindowsServicesBuildpack
+ namespace WindowsServicesBuildpack
 {
     public class ScimControllerInjector : Injector
     {
         private static readonly Dictionary<string, ServiceInfo> _serviceCommands = new Dictionary<string, ServiceInfo>();
 
         private static string[] Args;
+        List<LocalHook> _hooks = new List<LocalHook>();
 
         public ScimControllerInjector(InjectorContext context) :
             base(context)
@@ -20,9 +22,9 @@ namespace WindowsServicesBuildpack
 
         protected override void OnInstall()
         {
-            CreateHook("advapi32.dll", "StartServiceCtrlDispatcherW", new StartServiceCtrlDispatcherDelegate(StartServiceCtrlDispatcherHook));
-            CreateHook("advapi32.dll", "RegisterServiceCtrlHandlerExW", new RegisterServiceCtrlHandlerExDelegate(RegisterServiceCtrlHandlerExHook));
-            CreateHook("advapi32.dll", "SetServiceStatus", new SetServiceStatusDelegate(SetServiceStatusHook));
+            _hooks.Add(CreateHook("advapi32.dll", "StartServiceCtrlDispatcherW", new StartServiceCtrlDispatcherDelegate(StartServiceCtrlDispatcherHook)));
+            _hooks.Add(CreateHook("advapi32.dll", "RegisterServiceCtrlHandlerExW", new RegisterServiceCtrlHandlerExDelegate(RegisterServiceCtrlHandlerExHook)));
+            _hooks.Add(CreateHook("advapi32.dll", "SetServiceStatus", new SetServiceStatusDelegate(SetServiceStatusHook)));
             ApplicationLifecycle.RegisterForGracefulShutdown(async () =>
             {
                 Console.WriteLine("Starting graceful shutdown of services");
@@ -92,6 +94,7 @@ namespace WindowsServicesBuildpack
 
         public static bool StartServiceCtrlDispatcherHook(IntPtr entry)
         {
+            
             var services = new List<SERVICE_TABLE_ENTRY>();
             var entrySize = Marshal.SizeOf<SERVICE_TABLE_ENTRY>();
             var pos = entry;

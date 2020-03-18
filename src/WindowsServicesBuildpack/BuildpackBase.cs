@@ -57,8 +57,7 @@ namespace WindowsServicesBuildpack
         protected void DoApply(string buildPath, string cachePath, string depsPath, int index)
         {
             Apply(buildPath, cachePath, depsPath, index);
-            
-            var isPreStartOverriden = GetType().GetMethod(nameof(PreStartup), BindingFlags.Instance | BindingFlags.NonPublic)?.DeclaringType != typeof(BuildpackBase);
+            var isPreStartOverriden = GetType().GetMethod(nameof(PreStartup), BindingFlags.Instance | BindingFlags.Public, null, new[] {typeof(string),typeof(string),typeof(int) }, null  )?.DeclaringType != typeof(BuildpackBase);
             var buildpackDepsDir = Path.Combine(depsPath, index.ToString());
             Directory.CreateDirectory(buildpackDepsDir);
             var profiled = Path.Combine(buildPath, ".profile.d");
@@ -73,7 +72,7 @@ namespace WindowsServicesBuildpack
                 }
 
                 var extension = !IsLinux ? ".exe" : string.Empty;
-                var prestartCommand = $"{GetType().Assembly.GetName().Name}{extension} prestartup";
+                var prestartCommand = $"{GetType().Assembly.GetName().Name}{extension} PreStartup";
                 // write startup shell script to call buildpack prestart lifecycle event in deps dir
                 var startupScriptName = $"{index:00}_{nameof(WindowsServicesBuildpack)}_startup";
                 if (IsLinux)

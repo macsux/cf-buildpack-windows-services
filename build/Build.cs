@@ -64,7 +64,7 @@ class Build : NukeBuild
         get
         {
             if (Stack.HasFlag(StackType.Windows))
-                yield return new PublishTarget {Framework = "net472", Runtime = "win-x86"};
+                yield return new PublishTarget {Framework = "net472", Runtime = "win-x64"};
         }
     }
 
