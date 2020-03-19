@@ -77,6 +77,7 @@ class Build : NukeBuild
     AbsolutePath SourceDirectory => RootDirectory / "src";
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
+    string ReleaseName => $"v{GitVersion.MajorMinorPatch}";
     
     string[] LifecycleHooks = {"detect", "supply", "release", "finalize", "launch"};
 
@@ -88,25 +89,31 @@ class Build : NukeBuild
             TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
         });
 
-    Target Compile => _ => _
-        .Description("Compiles the buildpack")
-        .DependsOn(Clean)
-        .Executes(() =>
+    Target PublishSample => _ => _
+        .Executes(async () =>
         {
-            
-            Logger.Info(Stack);
-            DotNetBuild(s => s
-                .SetProjectFile(Solution)
+            var samplesFolder = RootDirectory / "test" / "SampleService";
+            MSBuildTasks.MSBuild(c => c
                 .SetConfiguration(Configuration)
-                
-                .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                .SetFileVersion(GitVersion.AssemblySemFileVer)
-                .SetInformationalVersion(GitVersion.InformationalVersion)
-                .CombineWith(PublishCombinations, (c, p) => c
-                    .SetFramework(p.Framework)
-                    .SetRuntime(p.Runtime)));
+                .SetSolutionFile(samplesFolder / "SampleService.csproj"));
+            var publishSampleDir = ArtifactsDirectory / "sampleapp";
+            DeleteDirectory(publishSampleDir);
+            CopyDirectoryRecursively(samplesFolder / "bin" / Configuration, publishSampleDir);
+            
+            var client = new GitHubClient(new ProductHeaderValue(BuildpackProjectName));
+            var gitIdParts = GitRepository.Identifier.Split("/");
+            var owner = gitIdParts[0];
+            var repoName = gitIdParts[1];
+            var latestRelease = await client.Repository.Release.GetLatest(owner, repoName);
+            var latestBuildpackUrl = latestRelease.Assets.FirstOrDefault(x => x.Name.Contains("x64"))?.BrowserDownloadUrl;
+            ControlFlow.NotNull(latestBuildpackUrl, "Can't find buildpack URL asset on github releases");
+            
+            var manifestTemplate = File.ReadAllText(samplesFolder / "manifest.yml");
+            var manifestText = manifestTemplate.Replace("{{buildpackurl}}", latestBuildpackUrl);
+            File.WriteAllText(publishSampleDir / "manifest.yml", manifestText);
+            Logger.Block($"Sample has been compiled and can be pushed from {samplesFolder}");
         });
-    
+
     Target Publish => _ => _
         .Description("Packages buildpack in Cloud Foundry expected format into /artifacts directory")
         .DependsOn(Clean)
@@ -176,17 +183,17 @@ class Build : NukeBuild
                 var owner = gitIdParts[0];
                 var repoName = gitIdParts[1];
     
-                var releaseName = $"v{GitVersion.MajorMinorPatch}";
+                
                 Release release;
                 try
                 {
-                    release = await client.Repository.Release.Get(owner, repoName, releaseName);
+                    release = await client.Repository.Release.Get(owner, repoName, ReleaseName);
                 }
                 catch (NotFoundException)
                 {
-                    var newRelease = new NewRelease(releaseName)
+                    var newRelease = new NewRelease(ReleaseName)
                     {
-                        Name = releaseName,
+                        Name = ReleaseName,
                         Draft = false,
                         Prerelease = false
                     };

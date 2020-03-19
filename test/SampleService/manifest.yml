@@ -1,0 +1,10 @@
+---
+applications:
+- name: test-windows-service
+  no-route: true
+  health-check-type: process
+  memory: 512M
+  stack: windows
+  buildpack: {{buildpackurl}}
+  
+  
