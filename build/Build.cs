@@ -14,6 +14,7 @@ using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
+using Nuke.Common.Tools.CloudFoundry;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitHub;
 using Nuke.Common.Tools.GitVersion;
@@ -23,6 +24,7 @@ using Nuke.Common.Utilities.Collections;
 using Octokit;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
+using static Nuke.Common.Tools.CloudFoundry.CloudFoundryTasks;
 using FileMode = System.IO.FileMode;
 using ZipFile = System.IO.Compression.ZipFile;
 
@@ -58,6 +60,23 @@ class Build : NukeBuild
 
     [Parameter("Application directory against which buildpack will be applied")]
     readonly string ApplicationDirectory;
+    
+    [Parameter("Cloud Foundry API endpoint")]
+    string CfApiUrl;
+    [Parameter("If SSL should be skipped when talking to Cloud Foundry")]
+    bool CfSkipSsl = true;
+    [Parameter("Cloud Foundry Username")]
+    string CfUsername;
+    [Parameter("Cloud Foundry Password")]
+    string CfPassword;
+    [Parameter("Cloud Foundry org")]
+    string CfOrg;
+    [Parameter("Cloud Foundry space")]
+    string CfSpace;
+    [Parameter("Skip loggin and target and use whatever the current CF cli is pointing at")]
+    bool CfSkipLogin;
+    
+    
 
     IEnumerable<PublishTarget> PublishCombinations
     {
@@ -65,6 +84,8 @@ class Build : NukeBuild
         {
             if (Stack.HasFlag(StackType.Windows))
                 yield return new PublishTarget {Framework = "net472", Runtime = "win-x64"};
+            // if (Stack.HasFlag(StackType.Windows))
+            //     yield return new PublishTarget {Framework = "net472", Runtime = "win-x86"};
         }
     }
 
@@ -78,7 +99,7 @@ class Build : NukeBuild
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     string ReleaseName => $"v{GitVersion.MajorMinorPatch}";
-    
+    AbsolutePath GetPublishSampleDir(PublishTarget publishCombination) => ArtifactsDirectory / $"sampleapp-{publishCombination.Runtime}" ;
     string[] LifecycleHooks = {"detect", "supply", "release", "finalize", "launch"};
 
     Target Clean => _ => _
@@ -89,34 +110,61 @@ class Build : NukeBuild
             TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
         });
 
+    [Parameter("The URL of test buildpack. If not specified, will be set to where Release publishes to")]
+    string BuildpackUrl;
+
     Target PublishSample => _ => _
+        .DependsOn(Clean)
+        .DependsOn(PublishSolution)
         .Executes(async () =>
         {
-            var samplesFolder = RootDirectory / "test" / "SampleService";
-            MSBuildTasks.MSBuild(c => c
+            foreach (var publishCombination in PublishCombinations)
+            {
+                var samplesFolder = RootDirectory / "test" / "SampleService";
+
+                var publishSampleDir = GetPublishSampleDir(publishCombination);
+                DeleteDirectory(publishSampleDir);
+                CopyDirectoryRecursively(samplesFolder / "bin" / Configuration / publishCombination.Framework / publishCombination.Runtime / "publish", publishSampleDir);
+
+                var client = new GitHubClient(new ProductHeaderValue(BuildpackProjectName));
+                var gitIdParts = GitRepository.Identifier.Split("/");
+                var owner = gitIdParts[0];
+                var repoName = gitIdParts[1];
+                var latestRelease = await client.Repository.Release.GetLatest(owner, repoName);
+                var latestBuildpackUrl = latestRelease.Assets.FirstOrDefault(x => x.Name.Contains("x64"))?.BrowserDownloadUrl;
+                ControlFlow.NotNull(latestBuildpackUrl, "Can't find buildpack URL asset on github releases");
+
+                var manifestTemplate = File.ReadAllText(samplesFolder / "manifest.yml");
+                var manifestText = manifestTemplate.Replace("{{buildpackurl}}", latestBuildpackUrl);
+                File.WriteAllText(publishSampleDir / "manifest.yml", manifestText);
+                Logger.Block($"Sample has been compiled and can be pushed from {samplesFolder}");
+            }
+        });
+
+    Target PublishSolution => _ => _
+        .Unlisted()
+        .DependsOn(Clean)
+        .Description("Executes DotNet publish on the solution")
+        .Executes(() =>
+        {
+            DotNetPublish(s => s
+                .SetProject(Solution)
                 .SetConfiguration(Configuration)
-                .SetSolutionFile(samplesFolder / "SampleService.csproj"));
-            var publishSampleDir = ArtifactsDirectory / "sampleapp";
-            DeleteDirectory(publishSampleDir);
-            CopyDirectoryRecursively(samplesFolder / "bin" / Configuration, publishSampleDir);
-            
-            var client = new GitHubClient(new ProductHeaderValue(BuildpackProjectName));
-            var gitIdParts = GitRepository.Identifier.Split("/");
-            var owner = gitIdParts[0];
-            var repoName = gitIdParts[1];
-            var latestRelease = await client.Repository.Release.GetLatest(owner, repoName);
-            var latestBuildpackUrl = latestRelease.Assets.FirstOrDefault(x => x.Name.Contains("x64"))?.BrowserDownloadUrl;
-            ControlFlow.NotNull(latestBuildpackUrl, "Can't find buildpack URL asset on github releases");
-            
-            var manifestTemplate = File.ReadAllText(samplesFolder / "manifest.yml");
-            var manifestText = manifestTemplate.Replace("{{buildpackurl}}", latestBuildpackUrl);
-            File.WriteAllText(publishSampleDir / "manifest.yml", manifestText);
-            Logger.Block($"Sample has been compiled and can be pushed from {samplesFolder}");
+
+                .SetAssemblyVersion(GitVersion.AssemblySemVer)
+                .SetFileVersion(GitVersion.AssemblySemFileVer)
+                .SetInformationalVersion(GitVersion.InformationalVersion)
+                .CombineWith(PublishCombinations, (ss,v) => ss
+                    .SetFramework(v.Framework)
+                    .SetRuntime(v.Runtime))
+            );
         });
 
     Target Publish => _ => _
         .Description("Packages buildpack in Cloud Foundry expected format into /artifacts directory")
         .DependsOn(Clean)
+        .DependsOn(PublishSolution)
+        .Triggers(PublishSample)
         .Executes(async () =>
         {
             foreach (var publishCombination in PublishCombinations)
@@ -131,16 +179,6 @@ class Build : NukeBuild
                     throw new Exception($"Unable to find project called {BuildpackProjectName} in solution {Solution.Name}");
                 var publishDirectory = buildpackProject.Directory / "bin" / Configuration / framework / runtime / "publish";
                 var workBinDirectory = workDirectory / "bin";
-
-                DotNetPublish(s => s
-                    .SetProject(Solution)
-                    .SetConfiguration(Configuration)
-                    .SetFramework(framework)
-                    .SetRuntime(runtime)
-                    .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                    .SetFileVersion(GitVersion.AssemblySemFileVer)
-                    .SetInformationalVersion(GitVersion.InformationalVersion)
-                );
 
                 var lifecycleBinaries = Solution.GetProjects("Lifecycle*")
                     .Select(x => x.Directory / "bin" / Configuration / framework / runtime / "publish")
@@ -210,10 +248,58 @@ class Build : NukeBuild
                 var stream = File.OpenRead(zipPackageLocation);
                 var releaseAssetUpload = new ReleaseAssetUpload(packageZipName, "application/zip", stream, TimeSpan.FromHours(1));
                 var releaseAsset = await client.Repository.Release.UploadAsset(release, releaseAssetUpload);
-    
+                if(BuildpackUrl == null)
+                    BuildpackUrl = releaseAsset.BrowserDownloadUrl;
+                
                 Logger.Block(releaseAsset.BrowserDownloadUrl);
             }
         });
+
+    Target AcceptanceTest => _ => _
+        .DependsOn(Release)
+        .Requires(() => CfApiUrl)
+        .Requires(() => CfUsername)
+        .Requires(() => CfPassword)
+        .Requires(() => CfOrg)
+        .Requires(() => CfSpace)
+        .Executes(async () =>
+        {
+            if (!CfSkipLogin)
+            {
+                CloudFoundryApi(o => o
+                    .SetUrl(CfApiUrl)
+                    .SetSkipSSLValidation(CfSkipSsl));
+                CloudFoundryAuth(o => o
+                    .SetUsername(CfUsername)
+                    .SetPassword(CfPassword));
+                CloudFoundryCreateSpace(o => o
+                    .SetOrg(CfOrg)
+                    .SetSpace(CfSpace));
+                CloudFoundryTarget(o => o
+                    .SetOrg(CfOrg)
+                    .SetSpace(CfSpace));
+            }
+
+            foreach (var publishCombination in PublishCombinations)
+            {
+                var appName = "test-windows-service";
+                CloudFoundryDeleteApplication(o => o.SetAppName(appName));
+                var publishSampleDir = GetPublishSampleDir(publishCombination);
+                CloudFoundryPush(o => o
+                    .SetWorkingDirectory(publishSampleDir)
+                    .SetBuildpack(BuildpackUrl)
+                );
+                CloudFoundryStop(o => o.SetAppName(appName));
+                // await Task.Delay(10000);
+                var result = CloudFoundry($"logs {appName} --recent");
+                ControlFlow.Assert(result.Any(x => x.Text.Contains("OnStart called")), "OnStart was not called");
+                // ControlFlow.Assert(result.Any(x => x.Text.Contains("OnStop called")), "OnStop was not called");
+                
+            }
+            
+        });
+
+
 
     Target Detect => _ => _
         .Description("Invokes buildpack 'detect' lifecycle event")

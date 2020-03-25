@@ -5,6 +5,8 @@
         <TargetFramework>net472</TargetFramework>
         <AssemblyName>release</AssemblyName>
         <RootNamespace>Lifecycle</RootNamespace>
+        <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+
     </PropertyGroup>
 
     <ItemGroup>

@@ -18,7 +18,7 @@ namespace WindowsServicesBuildpack
             SystemEvents.SetConsoleEventHandler(OnTerminateCommand);
         }
 
-        public static WaitHandle ShutdownCompleteHandle => _shutdownCompleteHandle;
+        public static ManualResetEvent ShutdownCompleteHandle => _shutdownCompleteHandle;
 
         private static bool OnTerminateCommand(CtrlEvent eventtype)
         {

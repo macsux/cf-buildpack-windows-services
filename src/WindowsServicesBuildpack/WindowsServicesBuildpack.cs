@@ -32,7 +32,7 @@ namespace WindowsServicesBuildpack
                 targetExe = Directory.EnumerateFiles(folder)
                     .FirstOrDefault(x =>
                         x.EndsWith(".exe") &&
-                        x.ToLower() != Assembly.GetEntryAssembly().Location.ToLower() &&
+                        // x.ToLower() != Assembly.GetEntryAssembly().Location.ToLower() &&
                         !Path.GetFileName(x).Contains("EasyHook") && 
                         !Path.GetFileName(x).ToLower().Equals("buildpack.exe") && 
                         !Path.GetFileName(x).ToLower().Equals("detect.exe") && 
@@ -41,6 +41,11 @@ namespace WindowsServicesBuildpack
                         !Path.GetFileName(x).ToLower().Equals("release.exe")  &&
                         !Path.GetFileName(x).ToLower().Equals("launch.exe") 
                         );
+            }
+            else
+            {
+                if(!Path.IsPathRooted(targetExe))
+                    targetExe = Path.Combine(Directory.GetCurrentDirectory(), targetExe);
             }
             Console.WriteLine($"Identified {targetExe} as the service entry point executable");
             if (targetExe == null || !File.Exists(targetExe))
@@ -66,6 +71,10 @@ namespace WindowsServicesBuildpack
             else
                 Task.Run(() => entryPoint.Invoke(null, null));
             Console.WriteLine("Press CTRL+C to Shutdown...");
+            // if (Environment.GetEnvironmentVariable("IsSubjectUnderTest") != null)
+            // {
+            //     ApplicationLifecycle.Shutdown();
+            // }
             ApplicationLifecycle.ShutdownCompleteHandle.WaitOne();
         }
         public override string GetStartupCommand(string buildPath)

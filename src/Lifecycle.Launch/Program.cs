@@ -2,9 +2,9 @@
 
 namespace Lifecycle
 {
-    class Program
+    public class Program
     {
-        static int Main(string[] args)
+        public static int Main(string[] args)
         {
             var argsWithCommand = new[] {"Run"}.Concat(args).ToArray();
             return WindowsServicesBuildpack.Program.Main(argsWithCommand);

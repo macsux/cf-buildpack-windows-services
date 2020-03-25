@@ -24,7 +24,7 @@ namespace SampleService
 
         protected override void OnStop()
         {
-            Console.WriteLine("OnStop Called");
+            Console.WriteLine("OnStop called");
         }
     }
 }

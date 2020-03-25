@@ -5,6 +5,8 @@
         <TargetFramework>net472</TargetFramework>
         <RootNamespace>Lifecycle</RootNamespace>
         <AssemblyName>finalize</AssemblyName>
+        <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+
     </PropertyGroup>
 
     <ItemGroup>
